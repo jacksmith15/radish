@@ -1,0 +1,14 @@
+mypy==0.730
+pyflakes==2.2.0
+coverage
+ipdb
+pre-commit
+safety
+black
+pytest==6.0.1
+pytest-asyncio==0.14.0
+pytest-cov==2.10.0
+aioresponses==0.6.4
+testcontainers==3.0.3
+# redis required by redis testcontainers
+redis==3.5.3
