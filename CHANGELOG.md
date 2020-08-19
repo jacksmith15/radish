@@ -14,7 +14,7 @@ Types of changes are:
 
 ## [Unreleased]
 ### Added
-* `Interface` and `Database` classes for declaring redis interface.
+* `Interface` and `Resource` classes for declaring a Redis interface.
 * `get`, `save`, `delete`, `expire`, `aiter` and `filter` operations implemented.
 * Project started :)
 

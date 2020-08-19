@@ -26,8 +26,8 @@ class Order(BaseModel):
 
 
 class Radish(radish.Interface):
-    customers = radish.Database(0, Customer, key="id")
-    orders = radish.Database(1, Order, key="id")
+    customers = radish.Resource(Customer, key="id", db=0)
+    orders = radish.Resource(Order, key="id", db=1)
 
 
 async def get_customer_orders(customer_id: int) -> Tuple[Customer, List[Order]]:
@@ -39,8 +39,6 @@ async def get_customer_orders(customer_id: int) -> Tuple[Customer, List[Order]]:
         return customer, orders
 ```
 
-### Note:
-`radish` requires that each Redis database contains values of consistent data structure - as such it is not intended for complex use cases.
 
 # Requirements
 This package is currently tested for Python 3.7.

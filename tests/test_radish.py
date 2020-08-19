@@ -3,12 +3,12 @@ from datetime import datetime, timedelta
 from operator import attrgetter
 from typing import List, Optional, AsyncIterator, Iterator
 
-from aioredis import create_redis_pool
+from aioredis import create_redis_pool, Redis
 from pydantic import BaseModel, Field
 import pytest
 from testcontainers.redis import RedisContainer
 
-from radish import Database, Interface, RadishError, RadishKeyError
+from radish import Resource, Interface, RadishError, RadishKeyError
 
 
 pytestmark = pytest.mark.asyncio
@@ -45,8 +45,9 @@ class ToDo(BaseModel):
 
 
 class Radish(Interface):
-    users = Database(1, User, key="id")
-    todos = Database(2, ToDo, key="id")
+    users = Resource(User, key="id", db=0)
+    todos = Resource(ToDo, key="id", db=1)
+    admin = Resource(User, key="id", db=0, prefix="Admin")
 
 
 @pytest.fixture()
@@ -81,9 +82,30 @@ class TestInterface:
     async def test_it_raises_on_reserved_class_attr():
         with pytest.raises(RadishError):
             class _Radish(Interface):
-                users = Database(1, User, key="id")
-                todos = Database(2, ToDo, key="id")
+                users = Resource(User, key="id", db=0)
+                todos = Resource(ToDo, key="id", db=0)
                 _meta = "foo"
+
+    @staticmethod
+    async def test_it_creates_records_with_the_correct_prefix(radish: Radish, redis: Redis):
+        await radish.users.save(User(id=1, name="bob"))
+        await radish.admin.save(User(id=1, name="frank"))
+        await redis.select(db=0)
+        user_result = User.parse_raw(await redis.get("User-1"))
+        assert user_result.name == "bob"
+        admin_result = User.parse_raw(await redis.get("Admin-1"))
+        assert admin_result.name == "frank"
+
+    @staticmethod
+    async def test_it_creates_records_in_the_correct_database(radish: Radish, redis: Redis):
+        user = User(id=1, name="bob")
+        await radish.users.save(user)
+        await radish.todos.save(ToDo(id=1, author=user, text="mow the lawn"))
+        await redis.select(0)
+        assert await redis.get("User-1")
+        await redis.select(1)
+        assert await redis.get("ToDo-1")
+
 
 class TestSave:
     @staticmethod

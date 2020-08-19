@@ -3,7 +3,7 @@ from typing import Any, Callable, cast, ClassVar, Dict, Tuple, Type, TypeVar
 
 from aioredis import create_redis_pool
 
-from radish.database import _DatabaseDescriptor
+from radish.resource import _ResourceDescriptor
 from radish.exceptions import RadishError
 
 
@@ -16,7 +16,7 @@ class InterfaceMeta(type):
         databases = {
             attr: value
             for attr, value in classdict.items()
-            if isinstance(value, _DatabaseDescriptor)
+            if isinstance(value, _ResourceDescriptor)
         }
         for attr in databases:
             del classdict[attr]

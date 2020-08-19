@@ -41,31 +41,36 @@ class FilterFactory(Generic[Model]):
         return filter_func
 
 
-class _DatabaseDescriptor(Generic[Model]):
+class _ResourceDescriptor(Generic[Model]):
     def __init__(
         self,
-        database_id: int,
         model: Type[Model],
         key: Union[str, Callable[[Model], SupportsStr]],
+        db: int = 0,
+        prefix: str = None,
     ):
-        self.database_id = database_id
+        self.db = db
         self.model = model
         self._key_func: Callable[[Model], SupportsStr] = attrgetter(key) if isinstance(
             key, str
         ) else key
         self.filter_factory = FilterFactory(self.model)
+        self.prefix = (prefix or model.__name__).rstrip("-")
 
     def __call__(
         self, connection_factory: Callable = create_redis_pool, **connection_kwargs: Any,
-    ) -> "_Database[Model]":
-        return _Database(self, connection_factory, **connection_kwargs)
+    ) -> "_Resource[Model]":
+        return _Resource(self, connection_factory, **connection_kwargs)
 
-    def get_key(self, instance: Union[Model, SupportsStr]) -> str:
+    def _get_instance_key(self, instance: Union[Model, SupportsStr]) -> str:
         if isinstance(instance, self.model):
             return str(self._key_func(instance))
         if isinstance(instance, bytes):
             return instance.decode("utf-8")
         return str(instance)
+
+    def get_key(self, instance: Union[Model, SupportsStr]) -> str:
+        return f"{self.prefix}-{self._get_instance_key(instance)}"
 
     def deserialize(self, data: bytes) -> Model:
         return self.model.parse_raw(data)
@@ -74,7 +79,7 @@ class _DatabaseDescriptor(Generic[Model]):
         if not type(instance) is self.model:
             if not isinstance(instance, self.model):
                 raise RadishError(
-                    "Instance type {type(instance)} does not match database schema. "
+                    "Instance type {type(instance)} does not match resource schema. "
                     f"Accepts {self.model}."
                 )
             raise RadishError(
@@ -88,16 +93,16 @@ class _DatabaseDescriptor(Generic[Model]):
 NOT_PASSED = object()
 
 
-class _Database(Generic[Model]):
+class _Resource(Generic[Model]):
     def __init__(
         self,
-        descriptor: _DatabaseDescriptor[Model],
+        descriptor: _ResourceDescriptor[Model],
         connection_factory: Callable = create_redis_pool,
         **connection_kwargs: Any,
     ):
         self.descriptor = descriptor
         self._connection_factory = partial(
-            connection_factory, **connection_kwargs, db=self.descriptor.database_id,
+            connection_factory, **connection_kwargs, db=self.descriptor.db,
         )
         self._connection = None
 
@@ -118,7 +123,9 @@ class _Database(Generic[Model]):
             raise RadishError("Connection to redis has not been initialised.")
         return self._connection
 
-    async def save(self, instance: Model, allow_update: bool = True, expire: SupportsFloat = None) -> None:
+    async def save(
+        self, instance: Model, allow_update: bool = True, expire: SupportsFloat = None
+    ) -> None:
         if not allow_update:
             existing = await self.connection.exists(self.descriptor.get_key(instance))
             if existing:
@@ -126,7 +133,7 @@ class _Database(Generic[Model]):
         await self.connection.set(
             self.descriptor.get_key(instance),
             self.descriptor.serialize(instance),
-            pexpire=int(float(expire)*1000) if expire else None,
+            pexpire=int(float(expire) * 1000) if expire else None,
         )
 
     async def get(self, instance: Union[Model, SupportsStr], default=NOT_PASSED) -> Model:
@@ -142,15 +149,17 @@ class _Database(Generic[Model]):
         if not exists:
             raise RadishKeyError(f"Key {repr(key)} does not exist.")
 
-    async def expire(self, instance: Union[Model, SupportsStr], expire: SupportsFloat) -> None:
+    async def expire(
+        self, instance: Union[Model, SupportsStr], expire: SupportsFloat
+    ) -> None:
         key: str = self.descriptor.get_key(instance)
         exists = bool(await self.connection.expire(str(key), float(expire)))
         if not exists:
             raise RadishKeyError(f"Key {repr(key)} does not exist.")
 
     async def __aiter__(self):
-        async for key in self.connection.iscan():
-            yield await self.get(key)
+        async for key in self.connection.iscan(match=f"{self.descriptor.prefix}-*"):
+            yield await self.get(key[len(self.descriptor.prefix) + 1 :])
 
     async def filter(self, **filter_kwargs: Any):
         filter_func = self.descriptor.filter_factory(**filter_kwargs)
@@ -159,8 +168,11 @@ class _Database(Generic[Model]):
                 yield instance
 
 
-def Database(
-    database_id: int, model: Type[Model], key: Union[str, Callable[[Model], SupportsStr]],
-) -> _Database[Model]:
+def Resource(
+    model: Type[Model],
+    key: Union[str, Callable[[Model], SupportsStr]],
+    db: int = 0,
+    prefix: str = None,
+) -> _Resource[Model]:
     """This ensures instance type annotations are correct when descriptors are set on the class."""
-    return cast(_Database, _DatabaseDescriptor(database_id, model, key))
+    return cast(_Resource, _ResourceDescriptor(model=model, key=key, db=db, prefix=prefix))
