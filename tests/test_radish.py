@@ -42,6 +42,7 @@ class ToDo(BaseModel):
     created: datetime = Field(default_factory=datetime.now)
     due: Optional[datetime] = None
     author: User
+    note: Optional[str] = None
 
 
 class Radish(Interface):
@@ -81,6 +82,7 @@ class TestInterface:
     @staticmethod
     async def test_it_raises_on_reserved_class_attr():
         with pytest.raises(RadishError):
+
             class _Radish(Interface):
                 users = Resource(User, key="id", db=0)
                 todos = Resource(ToDo, key="id", db=0)
@@ -137,6 +139,7 @@ class TestSave:
     async def test_it_fails_on_subclass_input_model(radish: Radish, user: User):
         class SubUser(User):
             pass
+
         sub_user = SubUser(id=2, name="pete")
         with pytest.raises(RadishError):
             await radish.users.save(sub_user)
@@ -292,3 +295,31 @@ class TestFilter:
         assert len(results) == 1
         assert results[0].author == author
         assert results[0].text == "mow the lawn"
+
+    @staticmethod
+    async def test_it_does_not_partially_match(
+        radish: Radish, users: List[User], todos: List[ToDo]
+    ):
+        results = [todo async for todo in radish.todos.filter(text="mow the law")]
+        assert results == []
+
+    @staticmethod
+    async def test_it_does_not_munge_attrs(radish: Radish, users: List[User]):
+        author = users[0]
+        todos = [
+            ToDo(id=0, text="mow the lawn", author=author),
+            ToDo(id=1, text="mow the lawn", author=author, note="mow the lawn"),
+            ToDo(id=2, text="something else", author=author, note="mow the lawn"),
+        ]
+        for todo in todos:
+            await radish.todos.save(todo)
+
+        note_results = [result async for result in radish.todos.filter(note="mow the lawn")]
+        assert len(note_results) == 2
+        assert todos[1] in note_results
+        assert todos[2] in note_results
+
+        text_results = [result async for result in radish.todos.filter(text="mow the lawn")]
+        assert len(text_results) == 2
+        assert todos[0] in text_results
+        assert todos[1] in text_results
