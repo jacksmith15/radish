@@ -1,44 +1,12 @@
-from abc import abstractmethod
 from functools import partial
 from operator import attrgetter
-from typing import Any, Callable, cast, Generic, SupportsFloat, Type, TypeVar, Union
+from typing import Any, Callable, cast, Generic, SupportsFloat, Type, Union
 
 from aioredis import create_redis_pool, Redis
-from pydantic import BaseModel
-from typing_extensions import Protocol
 
 from radish.exceptions import RadishKeyError, RadishError
-
-
-class SupportsStr(Protocol):
-    """An ABC with one abstract method __str__."""
-
-    @abstractmethod
-    def __str__(self) -> str:
-        pass  # pragma: no cover
-
-
-Model = TypeVar("Model", bound=BaseModel)
-
-
-class FilterFactory(Generic[Model]):
-    def __init__(self, target_model: Type[Model]):
-        self.target_model = target_model
-
-    def __call__(self, **filter_kwargs) -> Callable[[Model], bool]:
-        bad_kwargs = set(filter_kwargs) - set(self.target_model.__fields__)
-        if bad_kwargs:
-            raise RadishError(
-                f"Invalid filter fields for {self.target_model}: {bad_kwargs}."
-            )
-
-        def filter_func(instance: Model):
-            for attr, value in filter_kwargs.items():
-                if not getattr(instance, attr) == value:
-                    return False
-            return True
-
-        return filter_func
+from radish.filter import FilterFactory
+from radish.types import Model, SupportsStr
 
 
 class _ResourceDescriptor(Generic[Model]):

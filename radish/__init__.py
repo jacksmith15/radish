@@ -16,9 +16,6 @@ __all__ = [
 
 # TODO: Allow bulk saving
 # TODO: `radish.resource.create`
-# TODO: Migrate filtering to server side via match
 # TODO: Allow nested filtering
 # TODO: Allow structured filters:
-#   - `.users.filter(name=In("bob", "fred"))`
-#   - `.users.filter(name=Match("har.*"))`
 #   - `.users.filter(orders__id=Contains(10))`

@@ -9,6 +9,7 @@ import pytest
 from testcontainers.redis import RedisContainer
 
 from radish import Resource, Interface, RadishError, RadishKeyError
+from radish.filter import contains, equals, Filter, like, within
 
 
 pytestmark = pytest.mark.asyncio
@@ -43,6 +44,7 @@ class ToDo(BaseModel):
     due: Optional[datetime] = None
     author: User
     note: Optional[str] = None
+    watchers: List[User] = Field(default_factory=list)
 
 
 class Radish(Interface):
@@ -323,3 +325,108 @@ class TestFilter:
         assert len(text_results) == 2
         assert todos[0] in text_results
         assert todos[1] in text_results
+
+    @staticmethod
+    async def test_like_matches_on_partial_strings(radish: Radish, users: List[User]):
+        author = users[0]
+        todos = [
+            ToDo(id=0, text="mow the grass", author=author),
+            ToDo(id=1, text="mow the lawn", author=author),
+            ToDo(id=2, text="something else", author=author)
+        ]
+        for todo in todos:
+            await radish.todos.save(todo)
+
+        results = [result async for result in radish.todos.filter(text=like("mow the *"))]
+        assert len(results) == 2
+        assert todos[0] in results
+        assert todos[1] in results
+
+    @staticmethod
+    async def test_like_matches_on_regular_expressions(radish: Radish, users: List[User]):
+        author = users[0]
+        todos = [
+            ToDo(id=0, text="mow the grass", author=author),
+            ToDo(id=1, text="mow the lawn", author=author),
+            ToDo(id=2, text="something else", author=author)
+        ]
+        for todo in todos:
+            await radish.todos.save(todo)
+
+        results = [result async for result in radish.todos.filter(text=like("^.*(lawn|grass).*$", regex=True))]
+        assert len(results) == 2
+        assert todos[0] in results
+        assert todos[1] in results
+
+    @staticmethod
+    async def test_within_checks_membership(radish: Radish, users: List[User]):
+        results = [result async for result in radish.users.filter(id=within(range(0,2)))]
+        assert len(results) == 2
+        assert users[0] in results
+        assert users[1] in results
+
+    @staticmethod
+    async def test_contains_checks_members(radish: Radish, users: List[User]):
+        author = users[0]
+        todos = [
+            ToDo(id=0, text="mow the grass", author=author, watchers=users[0:2]),
+            ToDo(id=1, text="mow the lawn", author=author, watchers=users[1:3]),
+            ToDo(id=2, text="something else", author=author, watchers=[users[2]]),
+        ]
+        for todo in todos:
+            await radish.todos.save(todo)
+
+        results = [result async for result in radish.todos.filter(watchers=contains(users[2]))]
+        assert len(results) == 2
+        assert todos[1] in results
+        assert todos[2] in results
+
+    @staticmethod
+    async def test_and_operators_can_be_used_to_compose_filters(radish: Radish, users: List[User]):
+        author = users[0]
+        todos = [
+            ToDo(id=0, text="mow the grass", author=author),
+            ToDo(id=1, text="mow the lawn", author=author),
+            ToDo(id=2, text="something else", author=author),
+        ]
+        for todo in todos:
+            await radish.todos.save(todo)
+
+        results = [result async for result in radish.todos.filter(text=like("mow*") & contains("lawn"))]
+        assert results == [todos[1]]
+
+
+    @staticmethod
+    async def test_or_operators_can_be_used_to_compose_filters(radish: Radish, users: List[User]):
+        author = users[0]
+        todos = [
+            ToDo(id=0, text="mow the grass", author=author),
+            ToDo(id=1, text="mow the lawn", author=author),
+            ToDo(id=2, text="something else", author=author),
+        ]
+        for todo in todos:
+            await radish.todos.save(todo)
+
+        results = [result async for result in radish.todos.filter(text=contains("else") | contains("lawn"))]
+        assert len(results) == 2
+        assert todos[1] in results
+        assert todos[2] in results
+
+
+class TestFilterTerm:
+    @staticmethod
+    @pytest.mark.parametrize(
+        "filter_,expected",
+        [
+            (equals("foo-bar"), "equals('foo-bar')"),
+            (like("foo-*"), "like('foo-*')"),
+            (like("foo-[0-9]+", regex=True), "like('foo-[0-9]+', regex=True)"),
+            (within(range(100, 150)), "within(range(100, 150))"),
+            (within([1, 2, 3]), "within([1, 2, 3])"),
+            (contains(27), "contains(27)"),
+            (like("foo-[0-9]+") & contains("27"), "(like('foo-[0-9]+') and contains('27'))"),
+            (like("foo-[0-9]+") | contains("27"), "(like('foo-[0-9]+') or contains('27'))"),
+        ]
+    )
+    def test_reprs(filter_: Filter, expected: str):
+        assert repr(filter_) == expected
