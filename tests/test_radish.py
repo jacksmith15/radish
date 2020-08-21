@@ -110,6 +110,20 @@ class TestInterface:
         await redis.select(1)
         assert await redis.get("ToDo-1")
 
+    @staticmethod
+    async def test_it_raises_on_namespace_conflicts_within_the_same_database():
+        with pytest.raises(RadishError):
+            class _Radish(Interface):
+                users = Resource(User, key="id", db=0)
+                admin = Resource(User, key="id", db=0)
+
+    @staticmethod
+    async def test_it_does_not_raise_on_namespace_conflicts_in_different_databases():
+        class _Radish(Interface):
+            users = Resource(User, key="id", db=0)
+            admin = Resource(User, key="id", db=1)
+        assert _Radish
+
 
 class TestSave:
     @staticmethod
