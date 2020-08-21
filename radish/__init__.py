@@ -14,7 +14,6 @@ __all__ = [
 ]
 
 
-# TODO: Allow bulk saving
 # TODO: `radish.resource.create`
 # TODO: Allow nested filtering
 # TODO: Allow structured filters:

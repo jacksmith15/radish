@@ -154,6 +154,13 @@ class TestSave:
         await asyncio.sleep(0.5)
         assert not await radish.users.get(user.id, None)
 
+    @staticmethod
+    async def test_it_can_save_multiple_records(radish: Radish):
+        users = [User(id=1, name="bob"), User(id=2, name="pete")]
+        await radish.users.save(*users)
+        assert await radish.users.get(users[0].id)
+        assert await radish.users.get(users[1].id)
+
 
 class TestRetrieve:
     @staticmethod
@@ -233,7 +240,7 @@ class TestAIter:
         users = [
             User(id=idx, name=name) for idx, name in enumerate(["fred", "bob", "harry"])
         ]
-        await asyncio.gather(*[radish.users.save(user) for user in users])
+        await radish.users.save(*users)
         return users
 
     @staticmethod
@@ -249,7 +256,7 @@ class TestFilter:
         users = [
             User(id=idx, name=name) for idx, name in enumerate(["fred", "bob", "harry"])
         ]
-        await asyncio.gather(*[radish.users.save(user) for user in users])
+        await radish.users.save(*users)
         return users
 
     @staticmethod
@@ -274,7 +281,7 @@ class TestFilter:
             ToDo(id=idx, text=text, author=author, due=datetime.now() + timedelta(days=idx))
             for idx, (text, author) in enumerate(todo_data)
         ]
-        await asyncio.gather(*[radish.todos.save(todo) for todo in todos])
+        await radish.todos.save(*todos)
         return todos
 
     @staticmethod
@@ -334,8 +341,7 @@ class TestFilter:
             ToDo(id=1, text="mow the lawn", author=author),
             ToDo(id=2, text="something else", author=author)
         ]
-        for todo in todos:
-            await radish.todos.save(todo)
+        await radish.todos.save(*todos)
 
         results = [result async for result in radish.todos.filter(text=like("mow the *"))]
         assert len(results) == 2
@@ -350,8 +356,7 @@ class TestFilter:
             ToDo(id=1, text="mow the lawn", author=author),
             ToDo(id=2, text="something else", author=author)
         ]
-        for todo in todos:
-            await radish.todos.save(todo)
+        await radish.todos.save(*todos)
 
         results = [result async for result in radish.todos.filter(text=like("^.*(lawn|grass).*$", regex=True))]
         assert len(results) == 2
@@ -373,8 +378,7 @@ class TestFilter:
             ToDo(id=1, text="mow the lawn", author=author, watchers=users[1:3]),
             ToDo(id=2, text="something else", author=author, watchers=[users[2]]),
         ]
-        for todo in todos:
-            await radish.todos.save(todo)
+        await radish.todos.save(*todos)
 
         results = [result async for result in radish.todos.filter(watchers=contains(users[2]))]
         assert len(results) == 2
@@ -389,8 +393,7 @@ class TestFilter:
             ToDo(id=1, text="mow the lawn", author=author),
             ToDo(id=2, text="something else", author=author),
         ]
-        for todo in todos:
-            await radish.todos.save(todo)
+        await radish.todos.save(*todos)
 
         results = [result async for result in radish.todos.filter(text=like("mow*") & contains("lawn"))]
         assert results == [todos[1]]
@@ -404,8 +407,7 @@ class TestFilter:
             ToDo(id=1, text="mow the lawn", author=author),
             ToDo(id=2, text="something else", author=author),
         ]
-        for todo in todos:
-            await radish.todos.save(todo)
+        await radish.todos.save(*todos)
 
         results = [result async for result in radish.todos.filter(text=contains("else") | contains("lawn"))]
         assert len(results) == 2

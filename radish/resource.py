@@ -1,6 +1,7 @@
+import asyncio
 from functools import partial
 from operator import attrgetter
-from typing import Any, Callable, cast, Generic, SupportsFloat, Type, Union
+from typing import Any, Callable, cast, Generic, List, SupportsFloat, Type, Union
 
 from aioredis import create_redis_pool, Redis
 
@@ -92,16 +93,29 @@ class _Resource(Generic[Model]):
         return self._connection
 
     async def save(
-        self, instance: Model, allow_update: bool = True, expire: SupportsFloat = None
+        self, *instances: Model, allow_update: bool = True, expire: SupportsFloat = None
     ) -> None:
         if not allow_update:
-            existing = await self.connection.exists(self.descriptor.get_key(instance))
-            if existing:
-                raise RadishError(f"Record for {repr(instance)} already exists")
-        await self.connection.set(
-            self.descriptor.get_key(instance),
-            self.descriptor.serialize(instance),
-            pexpire=int(float(expire) * 1000) if expire else None,
+            existing: List[bool] = await asyncio.gather(
+                *[
+                    self.connection.exists(self.descriptor.get_key(instance))
+                    for instance in instances
+                ]
+            )
+            if any(existing):
+                already_exists: List[Model] = [instance for instance, exists in zip(instances, existing) if exists]
+                raise RadishError(f"Records for {repr(already_exists)} already exists")
+        serialized_instances = [
+            (self.descriptor.get_key(instance), self.descriptor.serialize(instance))
+            for instance in instances
+        ]
+        await asyncio.gather(
+            *[
+                self.connection.set(
+                    key, data, pexpire=int(float(expire) * 1000) if expire else None
+                )
+                for key, data in serialized_instances
+            ]
         )
 
     async def get(self, instance: Union[Model, SupportsStr], default=NOT_PASSED) -> Model:
