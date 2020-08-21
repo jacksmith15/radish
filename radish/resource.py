@@ -92,6 +92,11 @@ class _Resource(Generic[Model]):
             raise RadishError("Connection to redis has not been initialised.")
         return self._connection
 
+    async def create(self, *args, **kwargs) -> Model:
+        instance = self.descriptor.model(*args, **kwargs)
+        await self.save(instance, allow_update=False)
+        return instance
+
     async def save(
         self, *instances: Model, allow_update: bool = True, expire: SupportsFloat = None
     ) -> None:

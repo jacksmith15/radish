@@ -162,6 +162,22 @@ class TestSave:
         assert await radish.users.get(users[1].id)
 
 
+class TestCreate:
+    @staticmethod
+    async def test_it_can_create_new_record(radish: Radish):
+        user: User = await radish.users.create(id=1, name="bob")
+        assert user.id == 1
+        assert user.name == "bob"
+        assert user == await radish.users.get(1)
+
+    @staticmethod
+    async def test_it_cannot_create_an_existing_record(radish: Radish):
+        user = User(id=1, name="bob")
+        await radish.users.save(user)
+        with pytest.raises(RadishError):
+            await radish.users.create(id=user.id, name=user.name)
+
+
 class TestRetrieve:
     @staticmethod
     async def test_it_can_retrieve_record_by_id(radish: Radish, user: User):

@@ -14,7 +14,6 @@ __all__ = [
 ]
 
 
-# TODO: `radish.resource.create`
 # TODO: Allow nested filtering
 # TODO: Allow structured filters:
 #   - `.users.filter(orders__id=Contains(10))`
