@@ -30,6 +30,9 @@ build: test ## Creates a new build for publishing. Deletes previous builds.
 	pip install -U setuptools wheel
 	python setup.py sdist bdist_wheel
 
+docs: clean ## Builds the documentation.
+	make -C docs html
+
 publish: test ## Tags release, builds and publishes to pypi
 	python release.py
 	pip install -U setuptools wheel twine

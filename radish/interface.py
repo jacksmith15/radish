@@ -46,7 +46,7 @@ class Interface(metaclass=InterfaceMeta):
     """A specification of resources to be managed in Redis. Should be subclassed.
 
     Resources are declared by setting :func:`~radish.resource.Resource` instance as
-    class attributes on subclasses of :class:`radish.interface.Interface`:
+    class attributes on subclasses of :class:`~radish.interface.Interface`:
 
     .. code:: python
 
@@ -68,7 +68,7 @@ class Interface(metaclass=InterfaceMeta):
     You are free to define custom methods and properties on the subclass, and these will
     all be available on the yielded context:
 
-    ..code:: python
+    .. code:: python
 
         class Redis(radish.Interface):
             users = radish.Resource(User, key="id", db=0)

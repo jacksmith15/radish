@@ -54,7 +54,7 @@ class _ResourceDescriptor(Generic[Model]):
     def serialize(self, instance: Model) -> bytes:
         """Serialize a model instance to be stored in Redis.
 
-        :raises: :exc:`radish.exceptions.RadishError` if the model instance
+        :raises: :exc:`~radish.exceptions.RadishError` if the model instance
             is of an incorrect type.
         """
         if not type(instance) is self.model:
@@ -77,8 +77,8 @@ _NOT_PASSED = object()
 class _ResourceManager(Generic[Model]):
     """A manager for interacting with a particular resource type in Redis.
 
-    Should not be instantiated directly, but instead declared via ``radish.Resource``
-    on a ``radish.Interface`` subclass.
+    Should not be instantiated directly, but instead declared via :func:`~radish.resource.Resource`
+    on a :class:`~radish.interface.Interface` subclass.
     """
 
     def __init__(
@@ -122,7 +122,7 @@ class _ResourceManager(Generic[Model]):
         Arguments are passed directly through to the resource model to create
         the instance.
 
-        :raises: :exc:`radish.exceptions.RadishError`: if a record already
+        :raises: :exc:`~radish.exceptions.RadishError`: if a record already
             exists with this identifier.
         :return: The newly created and cached model instance.
         """
@@ -134,6 +134,10 @@ class _ResourceManager(Generic[Model]):
         self, *instances: Model, allow_update: bool = True, expire: SupportsFloat = None
     ) -> None:
         """Store one or more model instances in the Redis cache.
+
+        .. code:: python
+
+            await redis.users.save(User(id=1, name="bob"), User(id=2, name="frank"))
 
         :param instances: The set of model instances to store in the cache.
         :param allow_update: Whether to allow updates to existing records.
@@ -165,21 +169,32 @@ class _ResourceManager(Generic[Model]):
     async def get(self, instance: Union[Model, SupportsStr], default=_NOT_PASSED) -> Model:
         """Retrieve a record from the cache.
 
-        Either accepts an instance ID, or a local instance. The latter option is
-        supported for updating local instance state, for example:
+        Either accepts lookup by instance ID:
 
         .. code:: python
 
-            # Refresh the user from the cache.
-            user = redis.users.get(user)
+            user = await redis.users.get(request.data["id"])
+
+        Or by instance itself:
+
+        .. code:: python
+
+            user = await redis.users.get(user)
+
+        Default values can be provided for the case where the record does not exist:
+
+        .. code:: python
+
+            if not await redis.users.get(user, None):
+                await redis.users.save(user)
 
         :param instance: Either the key to look up a record, or a model instance
             itself.
         :param default: Optional default value to return if the record does not exist.
-            Follows the same semantics as ``dict.get``.
+            Follows the same semantics as ``getattr``.
         :return: The cached model instance, or :paramref:`default` if provided and the
             record is not found.
-        :raises: :exc:`radish.exceptions.RadishKeyError` if no record is found
+        :raises: :exc:`~radish.exceptions.RadishKeyError` if no record is found
             and no default is provided.
         """
         key: str = self.descriptor.get_key(instance)
@@ -191,9 +206,13 @@ class _ResourceManager(Generic[Model]):
     async def delete(self, instance: Union[Model, SupportsStr]) -> None:
         """Delete a record from the cache.
 
+        .. code:: python
+
+            await redis.users.delete(bad_user)
+
         :param instance: Either the key of the record to delete, or a model instance
             itself.
-        :raises: :exc:`radish.exceptions.RadishKeyError` if no matching record exists.
+        :raises: :exc:`~radish.exceptions.RadishKeyError` if no matching record exists.
         """
         key: str = self.descriptor.get_key(instance)
         exists = bool(await self.connection.delete(str(key)))
@@ -205,10 +224,14 @@ class _ResourceManager(Generic[Model]):
     ) -> None:
         """Set a record to expire.
 
+        .. code:: python
+
+            await redis.users.expire(old_user, 10.0)
+
         :param instance: Either the key of the record to expire, or a model instance
             itself.
         :param expire: The number of seconds in which to expire the record.
-        :raises: :exc:`radish.exceptions.RadishKeyError` if no matching record exists.
+        :raises: :exc:`~radish.exceptions.RadishKeyError` if no matching record exists.
         """
         key: str = self.descriptor.get_key(instance)
         exists = bool(await self.connection.expire(str(key), float(expire)))
@@ -216,6 +239,14 @@ class _ResourceManager(Generic[Model]):
             raise RadishKeyError(f"Key {repr(key)} does not exist.")
 
     async def __aiter__(self) -> AsyncIterator[Model]:
+        """Iterate all cached records for this resource type.
+
+        .. code:: python
+
+            async for user in redis.users:
+                await send(user.id)
+
+        """
         async for key in self.connection.iscan(match=f"{self.descriptor.prefix}-*"):
             yield await self.get(key[len(self.descriptor.prefix) + 1 :])
 
@@ -262,9 +293,9 @@ class _ResourceManager(Generic[Model]):
                 )
             ]
 
-        :filter_kwargs: The keys should match the resource model's fields
+        :param filter_kwargs: The keys should match the resource model's fields
             and the values can either be values for exact matching, or be one
-            of the filter terms provided in :mod:`radish.filter`.
+            of the filter terms provided in :mod:`radish.filter` (see above).
         :return: An async iterator over the matching records.
         """
         filter_func = self.descriptor.filter_factory(**filter_kwargs)
@@ -281,7 +312,7 @@ def Resource(
     db: int = 0,
     prefix: str = None,
 ) -> _ResourceManager[Model]:
-    """Declare a new resource type on a :class:`~radish.interface.Interface` subclass.
+    """Declare a new resource type on an :class:`~radish.interface.Interface` subclass.
 
     Usage:
 
@@ -305,7 +336,8 @@ def Resource(
 
     This would store a serialized user instance at key ``"User-1"`` in the Redis
     database. This is hidden internally if your only interface to Redis is via
-    ``radish``, but is important if the cached data must be present elsewhere.
+    ``radish``, but is important to note if the cached data must be accessed
+    elsewhere.
 
     By default the namespace is taken from the model's class name. If this would
     cause conflicts then the prefix can be set explicitly as follows:
