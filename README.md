@@ -3,7 +3,7 @@
 `radish` is a pythonic Redis interface with support for asyncio (PEP 3156) and type annotations (PEP 484).
 
 # Usage
-`radish` uses `pydantic` to declare database model schemas.
+`radish` uses `pydantic` to declare resource schemas:
 
 ```python
 from datetime import datetime
@@ -37,8 +37,12 @@ async def get_customer_orders(customer_id: int) -> Tuple[Customer, List[Order]]:
             order async for order in cache.orders.filter(customer=customer)
         ]
         return customer, orders
-```
 
+async def get_all_customers() -> List[Customer]:
+    async with Radish(address="redis://redis") as cache:
+        return [customer async for customer in cache.customers]
+
+```
 
 # Requirements
 This package is currently tested for Python 3.7.

@@ -175,7 +175,7 @@ class TestCreate:
         user = User(id=1, name="bob")
         await radish.users.save(user)
         with pytest.raises(RadishError):
-            await radish.users.create(id=user.id, name=user.name)
+            _ = await radish.users.create(id=user.id, name=user.name)
 
 
 class TestRetrieve:
