@@ -62,6 +62,7 @@ Package requirements may be installed via `pip install -r requirements.txt`. Use
 2. Install the requirements: `pip install -r requirements.txt -r requirements-test.txt`
 3. Run `pre-commit install`
 4. Run the tests: `bash run_test.sh -c -a`
+5. Build the documentation: `make docs`
 
 This project uses the following QA tools:
 - [PyTest](https://docs.pytest.org/en/latest/) - for running unit tests.
