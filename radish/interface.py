@@ -85,7 +85,7 @@ class Interface(metaclass=InterfaceMeta):
     _meta: ClassVar[Dict[str, Any]]
 
     def __init__(
-        self, connection_factory: Callable = create_redis_pool, **redis_settings: Any
+        self, *, connection_factory: Callable = create_redis_pool, **redis_settings: Any
     ):
         for attr, resource_meta in type(self)._meta["resources"].items():
             setattr(self, attr, resource_meta(connection_factory, **redis_settings))

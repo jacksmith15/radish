@@ -47,6 +47,7 @@ Example Usage
             ]
             return customer, orders
 
+
     async def get_all_customers() -> List[Customer]:
         async with Radish(address="redis://redis") as cache:
             return [customer async for customer in cache.customers]
@@ -55,7 +56,7 @@ Example Usage
 Requirements
 ------------
 
-This package is currently tested for Python 3.7.
+This package is currently tested for Python 3.7. It uses `Pydantic`_ and `aioredis`_.
 
 Contents
 ========
@@ -63,6 +64,7 @@ Contents
 .. toctree::
    :maxdepth: 2
 
+   usage
    api
 
 
@@ -80,3 +82,4 @@ Indices and tables
 .. _Redis: https://redis.io/
 .. _asyncio: https://docs.python.org/3/library/asyncio.html
 .. _type hints: https://docs.python.org/3/library/typing.html
+.. _aioredis: https://aioredis.readthedocs.io/en/stable/
