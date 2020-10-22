@@ -32,20 +32,15 @@ You can configure your interface to `Redis`_ by setting a number of :func:`~radi
 
 
     class Radish(radish.Interface):
-        customers = radish.Resource(Customer, key="id", db=0)
-        orders = radish.Resource(Order, key="id", db=1)
+        customers = radish.Resource(Customer, key="id")
+        orders = radish.Resource(Order, key="id")
 
-In the above example, there are two models, ``Customer`` and ``Order``. Each will be stored in a separate ``Redis`` database, and keyed on their ID fields.
+In the above example, there are two models, ``Customer`` and ``Order``. Each will be stored in the default ``Redis`` database (``0``), and keyed on their ID fields.
 
-Multiple resources can use the same ``Redis`` database, as the keys will be prefixed with the model name:
+.. note::
+    Multiple resources can use the same ``Redis`` database, as the keys will be prefixed with the model name.
 
-.. code:: python
-
-    class Radish(radish.Interface):
-        customers = radish.Resource(Customer, key="id", db=0)
-        orders = radish.Resource(Order, key="id", db=0)
-
-However, if you want to store the same model in the same database under different contexts, you will need to manually set the namespace to avoid conflicts:
+If you want to store the same model in the same database under different contexts, you will need to manually set the namespace to avoid conflicts:
 
 .. code:: python
 
@@ -54,8 +49,25 @@ However, if you want to store the same model in the same database under differen
         email: str
 
     class Radish(radish.Interface):
-        users = radish.Resource(Person, key="id", db=0, prefix="user")
-        administrators = radish.Resource(Person, key="id", db=0, prefix="administrator")
+        users = radish.Resource(Person, key="id", prefix="user")
+        administrators = radish.Resource(Person, key="id", prefix="administrator")
+
+
+Alternatively, you can store resources in different databases:
+
+.. code:: python
+
+    class Person(BaseModel):
+        id: int
+        email: str
+
+    class Radish(radish.Interface):
+        users = radish.Resource(Person, key="id", db=0)
+        administrators = radish.Resource(Person, key="id", db=1)
+
+.. warning::
+
+    Redis support for multiple databases is deprecated and not supported in Redis Cluster. It's recommended that you do not specify the database on your resources, unless you absolutely must.
 
 
 Connecting to Redis
